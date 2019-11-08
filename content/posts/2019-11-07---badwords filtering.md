@@ -1,5 +1,5 @@
 ---
-title: badwords 필터링(작성중)
+title: badwords 필터링
 date: "2019-11-07"
 template: "post"
 draft: false
@@ -70,6 +70,8 @@ class Filter {
   }
 ```
 
+아직 es6 자바스크립트가 잘 읽히지 않는 내게.. 1번 코드는 심플하지 않다.
+
 #### 3번 코드
 
 ```js
@@ -114,3 +116,44 @@ module.exports = {
 };
 ```
 
+누가 봐도 1번 보단 심플한 3번 코드를 사용하기로 결정했다.
+
+`regex = new RegExp(blacklist.join('|'), 'i');`
+
+`join()`은 배열의 모든 요소를 연결해 하나의 문자열로 만든다.
+참고 : https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Global_Objects/Array/join
+join의 결과값이 어떻게 나오는 지 확인하기 위해 codesandbox 에서 테스트를 해보았다.
+
+```json
+// badwords.json
+["weport", "admin"]
+```
+
+```js
+$.getJSON("src/badwords.json", function() {})
+  .done(function(response) {
+    var regex = new RegExp(response.join('|'), 'i');
+    console.log(regex)
+  })
+
+// /weport|admin/i
+```
+
+위 결과값으로 만들어진 정규표현식에 test() 메소드로 badword인지 아닌지 여부를 확인한다.
+
+```js
+function test(blackList, regex, string) {
+  console.log(!!blackList.length && regex.test(string));
+}
+
+$.getJSON("src/badwords.json", function() {})
+  .done(function(response) {
+    var regex = new RegExp(response.join("|"), "i");
+    test(response, regex, "admin");
+  })
+// true
+
+// 만약 string에 다른 값을 주면
+// test(response, regex, "other value");
+// false
+```
