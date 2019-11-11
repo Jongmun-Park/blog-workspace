@@ -29,11 +29,11 @@ module.exports = {
     photo: '/groot.png',
     bio: 'Write posts i learned or thought. Simple code is better.',
     contacts: {
-      email: '',
+      email: 'momenttraveler@gmail.com',
       facebook: '#',
       telegram: '#',
       twitter: '#',
-      github: '#',
+      github: 'Jongmun-Park',
       rss: '',
       vkontakte: '',
       linkedin: '#',
