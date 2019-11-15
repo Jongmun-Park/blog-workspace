@@ -61,33 +61,46 @@ distinct_user_and_freepass = freepass_users.distinct('user_info_id', 'freepass_i
 
 ```
 
-## 유저별 총 점수 data 만들기
+## 유저별 시험 점수 data 만들기
 
 프론트 단의 실수로 유저 데이터가 중복으로 입력되는 경우가 발생했다.
 이 때문에 통계 데이터를 만들 때, 중복 제거를 해야만 했다.
-이 작업 중 필요했던 `annotate`와 `distinct`는 함께 쓸 수 없었다.
-장고는 아래와 같은 에러를 발생시켰다.
+작업 중 아래와 같은 에러를 만났다.
+
+```python
+user_scores = TrialUserAnswer.objects.filter(
+        question__area__type=2, question__trial_id=trial_id
+    ).distinct('user', 'question', 'answer'
+    ).values('user', 'question__area', 'question__area__trial_time'
+    ).annotate(
+        correct_count = Sum(Case(
+            When(answer=F('question__answer'), then=1),
+            output_field=IntegerField())),
+    ).order_by('user', 'question__area')
+```
 
 `NotImplementedError: annotate() + distinct(fields) is not implemented`
+
+`distinct`한 `question` field를 `annotate`에서 사용할 수 없다는 에러로 보인다.
 
 이를 해결하고 데이터를 추출하기 위해서 아래와 같은 방법을 사용할 수 있었다.
 먼저, distinct + values_list 활용하여 중복 제거한 list 만든다.
 
 ```python
-distinct_trial_answer = TrialUserAnswer.objects.distinct(
-  'user', 'question', 'answer'
-  ).values_list('id', flat=True)
+distinct_trial_answers = TrialUserAnswer.objects.filter(
+        question__area__type=2, question__trial_id=trial_id
+    ).distinct('user', 'question', 'answer').values_list('id', flat=True)
 ```
 
-그리고 `distinct_trial_answer`에 담긴 id list로 필터링된 유저별 total_score를 계산한다.
+그리고 `distinct_trial_answers`에 담긴 id list로 필터링한 유저별 `correct_count`를 계산한다.
 
 ```python
-user_total_score_list = TrialUserAnswer.objects.filter(
-    id__in=distinct_trial_answer,
-    question__area__trial_time_id=trial_time_id
-    ).values('user'
+user_scores = TrialUserAnswer.objects.filter(
+        id__in = distinct_trial_answers
+    ).values('user', 'question__area', 'question__area__trial_time'
     ).annotate(
-        total_score=Sum(Case(When(answer=F('question__answer'), then=F('question__score')),
-        output_field=IntegerField()))
-    ).order_by('-total_score')
+        correct_count = Sum(Case(
+            When(answer=F('question__answer'), then=1),
+            output_field=IntegerField())),
+    ).order_by('user', 'question__area')
 ```
