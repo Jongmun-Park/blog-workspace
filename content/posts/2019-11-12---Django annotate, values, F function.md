@@ -1,5 +1,5 @@
 ---
-title: "Django: annotate, values, F function, order_by 등"
+title: "Django: annotate, values, F Object 등"
 date: "2019-11-12"
 template: "post"
 draft: false
@@ -9,8 +9,7 @@ tags:
   - "Django"
   - "annotate"
   - "values"
-  - "F function"
-  - "order_by"
+  - "F Object"
 description: ""
 ---
 
@@ -26,7 +25,7 @@ SQL Query 에서 as와 비슷한 역할을 한다고 생각하면 될 듯 하다
 - `values` : Returns a QuerySet that returns dictionaries, rather than model instances, when used as an iterable.
 Each of those dictionaries represents an object, with the keys corresponding to the attribute names of model objects.
 내가 지정한 필드만 dictionary(key: value) 형태로 리턴된다.
-- `F` function : An F() object represents the value of a model field or __annotated column__. It makes it possible to refer to model field values and perform database operations using them without actually having to pull them out of the database into Python memory.
+- `F` object : An F() object represents the value of a model field or __annotated column__. It makes it possible to refer to model field values and perform database operations using them without actually having to pull them out of the database into Python memory.
 가장 유용한 개념 중 하나라고 생각한다. 필드 혹은 annotated 필드의 값까지 데이터베이스에서 Python 메모리로 끌어낼 필요 없이 모델 필드 값을 참조하고 이를 사용하여 데이터베이스 작업을 수행할 수 있다.
 
 ### # annotate, values, distinct 활용해보기
@@ -44,23 +43,35 @@ freepass_users = UserVideoLecturePlayLog.objects.filter(
     user_content__content__in=contents, created_at__gte=start_date,
     user_content__parent__content__content_type=6, play_time__gt=timedelta(seconds=0)
     ).annotate(
-        user_info_id = F('user_content__order__user_info_id'),  # annotate를 활용하여 join한 필드 간편하게 사용
+        user_info_id = F('user_content__order__user_info_id'),
+        # annotate를 활용하여 join한 필드 간편하게 사용
         freepass_id = F('user_content__parent__content_id')
     ).values(
-        'user_info_id', 'freepass_id'                           # values를 활용하여 내가 사용할 필드 data만 가져오기
-    ).order_by('user_info_id', 'freepass_id')                   # order_by 사용하여 data 정렬
+        'user_info_id', 'freepass_id'  # values를 활용하여 내가 사용할 필드 data만 가져오기
+    ).order_by('user_info_id', 'freepass_id')  # order_by 사용하여 data 정렬
 
 freepass_users.count()
 # 253192
-distinct_user_id = freepass_users.distinct('user_info_id').count()  # distinct에 사용하는 필드와 그 순서에 따라 data가 달라진다
+
+# distinct에 사용하는 필드와 그 순서에 따라 data가 달라진다
+distinct_user_id = freepass_users.distinct('user_info_id').count()
 # 6091
 distinct_user_and_freepass = freepass_users.distinct('user_info_id', 'freepass_id').count()
 # 6298
 
 ```
 
+## 유저별 총 점수 data 만들기
 
-### # distinct + values_list 활용하여 중복 제거한 list 만들기
+프론트 단의 실수로 유저 데이터가 중복으로 입력되는 경우가 발생했다.
+이 때문에 통계 데이터를 만들 때, 중복 제거를 해야만 했다.
+이 작업 중 필요했던 `annotate`와 `distinct`는 함께 쓸 수 없었다.
+장고는 아래와 같은 에러를 발생시켰다.
+
+`NotImplementedError: annotate() + distinct(fields) is not implemented`
+
+이를 해결하고 데이터를 추출하기 위해서 아래와 같은 방법을 사용할 수 있었다.
+먼저, distinct + values_list 활용하여 중복 제거한 list 만든다.
 
 ```python
 distinct_trial_answer = TrialUserAnswer.objects.distinct(
@@ -68,7 +79,7 @@ distinct_trial_answer = TrialUserAnswer.objects.distinct(
   ).values_list('id', flat=True)
 ```
 
-### # Sum, Case, When, F function 활용하여 유저별 총계 data 가져오기
+그리고 `distinct_trial_answer`에 담긴 id list로 필터링된 유저별 total_score를 계산한다.
 
 ```python
 user_total_score_list = TrialUserAnswer.objects.filter(
